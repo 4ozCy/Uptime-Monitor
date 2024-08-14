@@ -44,9 +44,9 @@ const commands = [
         .toJSON(),
     new SlashCommandBuilder()
         .setName('delete-site')
-        .setDescription('Remove a site from monitoring')
+        .setDescription('delete a site from monitoring')
         .addStringOption(option => 
-        option.setName('url')
+            option.setName('url')
         .setDescription('The URL of the site to remove')
         .setRequired(true)
         ).toJSON()
@@ -121,7 +121,7 @@ async function monitorSites() {
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
     client.user.setActivity({
-        name: 'Your Monitor Heart Beat',
+        name: 'Your Monitor Heart beat',
         type: ActivityType.Listening,
     });
     setInterval(monitorSites, 5 * 60 * 1000);
