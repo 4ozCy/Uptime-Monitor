@@ -52,7 +52,7 @@ const commands = [
         ).toJSON()
 ];
 
-const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
+const rest = new REST({ version: '9' }).setToken(process.env.TOKEN);
 
 (async () => {
     try {
@@ -121,7 +121,7 @@ async function monitorSites() {
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
     client.user.setActivity({
-        name: 'Your Monitor Heart beat',
+        name: 'Your Monitor Heart Beat',
         type: ActivityType.Listening,
     });
     setInterval(monitorSites, 5 * 60 * 1000);
