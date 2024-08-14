@@ -41,10 +41,18 @@ const commands = [
     new SlashCommandBuilder()
         .setName('site-list')
         .setDescription('List all monitored sites')
-        .toJSON()
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('delete-site')
+        .setDescription('Remove a site from monitoring')
+        .addStringOption(option => 
+        option.setName('url')
+        .setDescription('The URL of the site to remove')
+        .setRequired(true)
+        ).toJSON()
 ];
 
-const rest = new REST({ version: '9' }).setToken(process.env.TOKEN);
+const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
     try {
@@ -58,26 +66,19 @@ const rest = new REST({ version: '9' }).setToken(process.env.TOKEN);
     }
 })();
 
-client.once('ready', async () => {
-    console.log(`Logged in as ${client.user.tag}!`);
-    client.user.setActivity({
-        name: 'Your Monitor Heart Beat',
-        type: ActivityType.Listening,
-    });
-    setInterval(monitorSites, 5 * 60 * 1000);
-});
-
 async function checkSiteStatus(site) {
     try {
         const start = Date.now();
         const response = await axios.get(site.url);
         const ping = Date.now() - start;
         const newStatus = response.status === 200 ? 'UP' : 'DOWN';
-        if (site.status !== newStatus || site.ping !== ping) {
+
+        if (site.status !== newStatus) {
             site.status = newStatus;
             site.ping = ping;
             site.lastChecked = new Date();
             await site.save();
+
             const channel = client.channels.cache.get(process.env.CHANNEL_ID);
             if (channel) {
                 const embed = new EmbedBuilder()
@@ -90,12 +91,13 @@ async function checkSiteStatus(site) {
         }
     } catch (error) {
         const newStatus = 'DOWN';
-        const ping = null;
+
         if (site.status !== newStatus) {
             site.status = newStatus;
-            site.ping = ping;
+            site.ping = null;
             site.lastChecked = new Date();
             await site.save();
+
             const channel = client.channels.cache.get(process.env.CHANNEL_ID);
             if (channel) {
                 const embed = new EmbedBuilder()
@@ -116,6 +118,15 @@ async function monitorSites() {
     });
 }
 
+client.once('ready', async () => {
+    console.log(`Logged in as ${client.user.tag}!`);
+    client.user.setActivity({
+        name: 'Your Monitor Heart Beat',
+        type: ActivityType.Listening,
+    });
+    setInterval(monitorSites, 5 * 60 * 1000);
+});
+
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
 
@@ -131,7 +142,8 @@ client.on('interactionCreate', async interaction => {
             .setColor(0x00ff00)
             .setTimestamp();
         await interaction.reply({ embeds: [embed] });
-    } else if (commandName === 'status') {
+    } else if (commandName === 'status') 
+{
         const sites = await Site.find();
         let statusMessage = '**Current Status:**\n';
         sites.forEach(site => {
@@ -155,8 +167,28 @@ client.on('interactionCreate', async interaction => {
             .setColor(0x00ff00)
             .setTimestamp();
         await interaction.reply({ embeds: [embed] });
+    } else if (commandName === 'delete-site') 
+{
+        const url = interaction.options.getString('url');
+        const site = await Site.findOneAndDelete({ url: url });
+        if (site) {
+            const embed = new EmbedBuilder()
+                .setTitle('Site Delete')
+                .setDescription(`Stopped monitoring **${url}**`)
+                .setColor(0xff0000)
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed] });
+        } else {
+            const embed = new EmbedBuilder()
+                .setTitle('Site Not Found')
+                .setDescription(`**${url}** is not being monitored.`)
+                .setColor(0xff0000)
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed] });
+        }
     }
 });
+
 
 app.get('/', (req, res) => {
   res.send('the bot is online');
