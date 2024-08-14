@@ -18,6 +18,7 @@ mongoose.connect(process.env.MONGODB_URL, {
 
 const siteSchema = new mongoose.Schema({
     url: String,
+    name: String,
     status: String,
     lastChecked: Date,
     ping: Number
@@ -33,7 +34,12 @@ const commands = [
             option.setName('url')
                   .setDescription('The URL of the site to monitor')
                   .setRequired(true)
-        ).toJSON(),
+        )
+        .addStringOption(option => 
+            option.setName('name')
+                  .setDescription('Custom name for the site')
+        )
+        .toJSON(),
     new SlashCommandBuilder()
         .setName('status')
         .setDescription('Check the status of all monitored sites')
@@ -82,7 +88,7 @@ async function checkSiteStatus(site) {
             const channel = client.channels.cache.get(process.env.CHANNEL_ID);
             if (channel) {
                 const embed = new EmbedBuilder()
-                    .setTitle(`${site.url} Status Update`)
+                    .setTitle(`${site.name} Status Update`)
                     .setDescription(`**Status**: ${newStatus}\n**Ping**: ${ping}ms`)
                     .setColor(newStatus === 'UP' ? 0x00ff00 : 0xff0000)
                     .setTimestamp();
@@ -101,7 +107,7 @@ async function checkSiteStatus(site) {
             const channel = client.channels.cache.get(process.env.CHANNEL_ID);
             if (channel) {
                 const embed = new EmbedBuilder()
-                    .setTitle(`${site.url} Status Update`)
+                    .setTitle(`${site.name} Status Update`)
                     .setDescription(`**Status**: ${newStatus}`)
                     .setColor(0xff0000)
                     .setTimestamp();
@@ -109,13 +115,6 @@ async function checkSiteStatus(site) {
             }
         }
     }
-}
-
-async function monitorSites() {
-    const sites = await Site.find();
-    sites.forEach(site => {
-        checkSiteStatus(site);
-    });
 }
 
 client.once('ready', async () => {
@@ -127,6 +126,7 @@ client.once('ready', async () => {
     setInterval(monitorSites, 3 * 60 * 1000);
 });
 
+
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
 
@@ -134,20 +134,20 @@ client.on('interactionCreate', async interaction => {
 
     if (commandName === 'add-site') {
         const url = interaction.options.getString('url');
-        const newSite = new Site({ url: url, status: 'UNKNOWN', lastChecked: new Date(), ping: null });
+        const customName = interaction.options.getString('name') || url; // Use URL as default if no name is provided
+        const newSite = new Site({ url: url, name: customName, status: 'UNKNOWN', lastChecked: new Date(), ping: null });
         await newSite.save();
         const embed = new EmbedBuilder()
             .setTitle('Site Added')
-            .setDescription(`Started monitoring **${url}**`)
+            .setDescription(`Started monitoring **${customName}** (${url})`)
             .setColor(0x00ff00)
             .setTimestamp();
         await interaction.reply({ embeds: [embed] });
-    } else if (commandName === 'status') 
-{
+    } else if (commandName === 'status') {
         const sites = await Site.find();
         let statusMessage = '**Current Status:**\n';
         sites.forEach(site => {
-            statusMessage += `${site.url}: ${site.status} (Ping: ${site.ping !== null ? site.ping + 'ms' : 'N/A'}) (Last Checked: ${site.lastChecked.toLocaleTimeString()})\n`;
+            statusMessage += `${site.name}: ${site.status} (Ping: ${site.ping !== null ? site.ping + 'ms' : 'N/A'}) (Last Checked: ${site.lastChecked.toLocaleTimeString()})\n`;
         });
         const embed = new EmbedBuilder()
             .setTitle('Monitored Sites Status')
@@ -159,7 +159,7 @@ client.on('interactionCreate', async interaction => {
         const sites = await Site.find();
         let siteListMessage = '**Monitored Sites:**\n';
         sites.forEach(site => {
-            siteListMessage += `${site.url}\n`;
+            siteListMessage += `${site.name} (${site.url})\n`;
         });
         const embed = new EmbedBuilder()
             .setTitle('Monitored Sites List')
@@ -167,14 +167,13 @@ client.on('interactionCreate', async interaction => {
             .setColor(0x00ff00)
             .setTimestamp();
         await interaction.reply({ embeds: [embed] });
-    } else if (commandName === 'delete-site') 
-{
+    } else if (commandName === 'delete-site') {
         const url = interaction.options.getString('url');
         const site = await Site.findOneAndDelete({ url: url });
         if (site) {
             const embed = new EmbedBuilder()
-                .setTitle('Site Delete')
-                .setDescription(`Stopped monitoring **${url}**`)
+                .setTitle('Site Deleted')
+                .setDescription(`Stopped monitoring **${site.name}** (${url})`)
                 .setColor(0xff0000)
                 .setTimestamp();
             await interaction.reply({ embeds: [embed] });
@@ -188,7 +187,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 });
-
 
 app.get('/', (req, res) => {
   res.send('the bot is online');
