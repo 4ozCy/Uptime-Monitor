@@ -124,7 +124,7 @@ client.once('ready', async () => {
         name: 'Your Monitor Heart Beat',
         type: ActivityType.Listening,
     });
-    setInterval(monitorSites, 5 * 60 * 1000);
+    setInterval(monitorSites, 3 * 60 * 1000);
 });
 
 client.on('interactionCreate', async interaction => {
